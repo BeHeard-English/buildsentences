@@ -72,7 +72,7 @@
   .hint{font-size:12.5px;color:#7093a4;font-weight:700;margin-top:6px;}
 
   /* ---------- GAME SCREEN ---------- */
-  #gameScreen{flex-direction:column;}
+  #gameScreen{flex-direction:column;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;}
   #halvesWrap{flex:1;min-height:0;display:flex;flex-direction:row;overflow:hidden;}
   .half{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
   .half.p1{background:linear-gradient(180deg,var(--p1-a),#eaf8ff);}
@@ -267,6 +267,21 @@
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', setAppHeight);
   }
+
+  /* ---------------- block native multi-touch gestures ----------------
+     iOS Safari can interpret two touches that are far apart (e.g. one per
+     player, on opposite sides of an iPad) as a pinch-to-zoom gesture and
+     swallow one of them. Blocking these keeps both players' touches
+     independent and reliable. */
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  document.addEventListener('gestureend', e => e.preventDefault());
+  document.addEventListener('touchmove', e => {
+    if(e.touches && e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchstart', e => {
+    if(e.touches && e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
 
   /* ---------------- utilities ---------------- */
   function shuffle(arr){
@@ -577,25 +592,33 @@
         startX: e.clientX, startY: e.clientY,
         offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
         width: rect.width, height: rect.height,
-        moved: false, floating: false, placeholder: null, halfEl: null, rotated: false
+        moved: false, floating: false, placeholder: null, halfEl: null, rotated: false,
+        lastX: e.clientX, lastY: e.clientY, rafId: null
       });
     });
     chip.addEventListener('pointermove', (e)=>{
       const st = dragStates.get(e.pointerId);
       if(!st || st.chip!==chip) return;
+      st.lastX = e.clientX; st.lastY = e.clientY;
       const dx = e.clientX - st.startX, dy = e.clientY - st.startY;
       if(!st.moved && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)){
         st.moved = true;
         startFloating(st);
       }
-      if(st.moved){
-        updateFloatingPosition(st, e);
-        updatePlaceholderTarget(st, e);
+      if(st.moved && st.rafId===null){
+        // batch DOM reads/writes to one update per animation frame — keeps drag smooth
+        // even when the browser fires pointermove much faster than the screen refreshes.
+        st.rafId = requestAnimationFrame(()=>{
+          st.rafId = null;
+          updateFloatingPosition(st, st.lastX, st.lastY);
+          updatePlaceholderTarget(st, st.lastX, st.lastY);
+        });
       }
     });
     function endDrag(e){
       const st = dragStates.get(e.pointerId);
       if(!st || st.chip!==chip) return;
+      if(st.rafId!==null){ cancelAnimationFrame(st.rafId); st.rafId=null; }
       dragStates.delete(e.pointerId);
       try{ chip.releasePointerCapture(e.pointerId); }catch(err){}
       if(!st.moved){
@@ -629,6 +652,7 @@
     chip.classList.add('dragging');
     chip.style.width = st.width+'px';
     chip.style.pointerEvents = 'none';
+    chip.style.willChange = 'left, top';
 
     if(rotated){
       // Stay inside the rotated half (which is already position:relative) so the
@@ -641,32 +665,32 @@
     }
   }
 
-  function updateFloatingPosition(st, e){
+  function updateFloatingPosition(st, x, y){
     const chip = st.chip;
     if(st.rotated){
       const rect = st.halfEl.getBoundingClientRect();
-      const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      const sx = x - rect.left, sy = y - rect.top;
       // 180° rotation = point reflection through the half's center
       const localLeft = rect.width  - st.width  - sx + st.offsetX;
       const localTop   = rect.height - st.height - sy + st.offsetY;
       chip.style.left = localLeft+'px';
       chip.style.top  = localTop+'px';
     } else {
-      chip.style.left = (e.clientX - st.offsetX)+'px';
-      chip.style.top  = (e.clientY - st.offsetY)+'px';
+      chip.style.left = (x - st.offsetX)+'px';
+      chip.style.top  = (y - st.offsetY)+'px';
     }
   }
 
   // Move the placeholder to sit wherever the pointer currently hovers within the tray.
-  function updatePlaceholderTarget(st, e){
+  function updatePlaceholderTarget(st, x, y){
     const tray = st.player.trayEl;
-    let target = document.elementFromPoint(e.clientX, e.clientY);
+    let target = document.elementFromPoint(x, y);
     while(target && target.parentNode !== tray) target = target.parentNode;
     if(!target || !tray.contains(target) || target === st.placeholder) return;
     const rect = target.getBoundingClientRect();
     const midX = rect.left + rect.width/2;
     // rotated half is visually mirrored, so left/right flips too
-    const before = st.rotated ? (e.clientX > midX) : (e.clientX < midX);
+    const before = st.rotated ? (x > midX) : (x < midX);
     if(before){
       tray.insertBefore(st.placeholder, target);
     } else {
@@ -684,6 +708,7 @@
     chip.style.width = '';
     chip.style.zIndex = '';
     chip.style.pointerEvents = '';
+    chip.style.willChange = '';
     if(st.placeholder && st.placeholder.parentNode === tray){
       tray.insertBefore(chip, st.placeholder);
       st.placeholder.remove();
