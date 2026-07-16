@@ -99,7 +99,7 @@
   .chip.tray-chip{cursor:grab;touch-action:none;position:relative;transition:box-shadow .12s;}
   .chip.tray-chip.dragging{cursor:grabbing;opacity:1;box-shadow:0 16px 30px rgba(20,60,90,.35);z-index:9999;transform:scale(1.08);pointer-events:none;}
   .tray-chip-placeholder{background:rgba(46,155,214,.12);box-shadow:none;border:2px dashed rgba(46,155,214,.5);}
-  @keyframes bob{0%,100%{transform:translateY(0px);}50%{transform:translateY(-9px);}}
+  @keyframes bob{0%,100%{transform:translate(-50%,-50%) translateY(0px);}50%{transform:translate(-50%,-50%) translateY(-9px);}}
   .pop-out{animation:popOut .22s forwards;}
   @keyframes popOut{to{transform:scale(0.2);opacity:0;}}
 
@@ -175,6 +175,14 @@
           <input type="text" id="p2Name" value="Player 2" maxlength="16">
         </div>
       </div>
+
+      <div class="section-label">Word Grouping</div>
+      <div class="mode-row">
+        <button class="mode-btn" id="chunkWord"><span class="big">🔤</span>Single Words</button>
+        <button class="mode-btn selected" id="chunkPhrase"><span class="big">🧩</span>Short Phrases</button>
+        <button class="mode-btn" id="chunkLong"><span class="big">📎</span>Long Phrases</button>
+      </div>
+      <div class="hint" style="margin-top:6px;">Phrases group words at natural breaks (before articles, prepositions, verbs...) so long sentences aren't a wall of tiny word pieces.</div>
 
       <div class="section-label">Sentences</div>
       <div class="tab-row">
@@ -290,6 +298,53 @@
     return sentence.trim().split(/\s+/).filter(Boolean);
   }
 
+  // A compact list of English function words — articles, prepositions, pronouns,
+  // auxiliary/modal verbs, conjunctions. These typically START a new natural
+  // phrase break (noun phrase, verb phrase, prepositional phrase, etc.), so we
+  // use them as chunk boundaries rather than tagging full parts of speech.
+  const FUNCTION_WORDS = new Set([
+    'a','an','the','this','that','these','those',
+    'i','you','he','she','it','we','they','me','him','her','us','them',
+    'my','your','his','its','our','their',
+    'in','on','at','to','for','with','of','from','by','about','into','onto','over','under',
+    'between','among','through','during','before','after','since','until','against','without','within','up','down','out','off',
+    'is','am','are','was','were','be','been','being','has','have','had','do','does','did',
+    'will','would','shall','should','can','could','may','might','must',
+    'and','but','or','so','because','although','though','if','when','while','than','as',
+    'not','no','some','any','every','each','all','both','few','many','much','more','most'
+  ]);
+  function bareWord(w){ return w.toLowerCase().replace(/^[^a-z']+|[^a-z']+$/gi,''); }
+
+  // Groups a word list into readable multi-word chunks, breaking before
+  // function words (natural phrase boundaries) and capping chunk length so
+  // no single piece gets unwieldy. mode: 'word' | 'phrase' | 'longphrase'.
+  function chunkSentence(words, mode){
+    if(mode==='word' || words.length<=1) return words.slice();
+    const maxLen = mode==='longphrase' ? 5 : 3;
+    const chunks = [];
+    let current = [];
+    words.forEach(w=>{
+      const isFn = FUNCTION_WORDS.has(bareWord(w));
+      if(current.length>0 && isFn){
+        chunks.push(current);
+        current = [w];
+      } else {
+        current.push(w);
+        if(current.length>=maxLen){
+          chunks.push(current);
+          current = [];
+        }
+      }
+    });
+    if(current.length>0) chunks.push(current);
+    // never leave a whole sentence as one un-splittable piece — that removes the game
+    if(chunks.length===1 && words.length>1){
+      const mid = Math.ceil(words.length/2);
+      return [words.slice(0,mid).join(' '), words.slice(mid).join(' ')];
+    }
+    return chunks.map(c=>c.join(' '));
+  }
+
   /* ---------------- background decorative clouds ---------------- */
   function spawnBgClouds(){
     const layer = document.createElement('div');
@@ -374,6 +429,16 @@
     document.getElementById('mode1P').classList.remove('selected');
     document.getElementById('p2NameWrap').style.display='block';
   });
+
+  let chunkMode = 'phrase'; // 'word' | 'phrase' | 'longphrase'
+  const chunkBtns = { word: document.getElementById('chunkWord'), phrase: document.getElementById('chunkPhrase'), longphrase: document.getElementById('chunkLong') };
+  function selectChunkMode(m){
+    chunkMode = m;
+    Object.keys(chunkBtns).forEach(k=> chunkBtns[k].classList.toggle('selected', k===m));
+  }
+  chunkBtns.word.addEventListener('click', ()=> selectChunkMode('word'));
+  chunkBtns.phrase.addEventListener('click', ()=> selectChunkMode('phrase'));
+  chunkBtns.longphrase.addEventListener('click', ()=> selectChunkMode('longphrase'));
 
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -534,7 +599,8 @@
     const sIdx = gameOrder[player.currentIndex];
     const sentence = allSentences[sIdx];
     const words = tokenize(sentence);
-    player.tokensForCurrent = words.map((w,i)=>({text:w, correctIndex:i}));
+    const chunkTexts = chunkSentence(words, chunkMode);
+    player.tokensForCurrent = chunkTexts.map((t,i)=>({text:t, correctIndex:i}));
     player.cntEl.textContent = (player.currentIndex+1)+'/'+gameOrder.length;
 
     player.poolEl.innerHTML = '';
@@ -548,7 +614,7 @@
       const pos = gridPosition(idx, shuffledTokens.length, player.poolEl);
       chip.style.left = pos.left+'%';
       chip.style.top = pos.top+'%';
-      chip.style.animationDelay = (Math.random()*2)+'s';
+      chip.style.animationDelay = (-Math.random()*2)+'s';
       chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
       chip.dataset.text = tok.text;
       chip.dataset.correctIndex = tok.correctIndex;
@@ -589,7 +655,7 @@
     const pos = gridPosition(count-1, Math.max(count, player.tokensForCurrent.length), player.poolEl);
     chip.style.left = pos.left+'%';
     chip.style.top = pos.top+'%';
-    chip.style.animationDelay = (Math.random()*2)+'s';
+    chip.style.animationDelay = (-Math.random()*2)+'s';
     chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
     attachPoolTap(player, chip);
     player.poolEl.appendChild(chip);
