@@ -846,9 +846,14 @@
   function checkAnswer(player){
     if(gameEnded || player.finished) return;
     const trayChips = Array.from(player.trayEl.children);
-    const order = trayChips.map(c=>parseInt(c.dataset.correctIndex,10));
-    let correct = true;
-    for(let i=0;i<order.length;i++){ if(order[i]!==i){correct=false;break;} }
+    // Compare by the actual chunk text in each slot, not by which specific chip
+    // instance was used — sentences with a repeated word/phrase (e.g. two "of"s)
+    // would otherwise be marked wrong even when the visible sentence is correct,
+    // since either matching chip can validly fill either matching slot.
+    const trayTexts = trayChips.map(c=>c.dataset.text);
+    const expectedTexts = player.tokensForCurrent.map(t=>t.text);
+    let correct = trayTexts.length===expectedTexts.length &&
+      trayTexts.every((t,i)=> t===expectedTexts[i]);
 
     if(correct){
       player.trayEl.classList.add('correctFlash');
