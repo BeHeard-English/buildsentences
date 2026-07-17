@@ -58,7 +58,7 @@
   .bg-cloud::before,.bg-cloud::after{content:none;}
 
   /* ---------- SETUP SCREEN ---------- */
-  #setupScreen{align-items:center;justify-content:flex-start;padding:24px 16px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;position:relative;z-index:1;}
+  #setupScreen{align-items:center;justify-content:flex-start;padding:24px 16px;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;z-index:1;}
   .setup-card{background:var(--card);border-radius:20px;max-width:720px;width:100%;padding:28px 32px;box-shadow:0 0 0 3px rgba(123,47,247,.55), 0 0 40px rgba(123,47,247,.35), 0 20px 40px rgba(0,0,0,.45);margin-bottom:20px;}
   .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px;}
   .logo-row .cloud-emoji{font-size:38px;filter:drop-shadow(0 0 10px rgba(123,47,247,.6));}
@@ -145,7 +145,7 @@
   .music-bar label{font-size:12px;font-weight:800;color:#c9b8ee;cursor:pointer;white-space:nowrap;}
 
   /* ---------- SUMMARY SCREEN ---------- */
-  #summaryScreen{align-items:center;justify-content:center;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:16px;position:relative;z-index:1;}
+  #summaryScreen{align-items:center;justify-content:center;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:16px;z-index:1;}
   .summary-card{background:var(--card);border-radius:20px;padding:30px 32px;max-width:560px;width:100%;box-shadow:0 0 0 3px rgba(123,47,247,.5),0 0 40px rgba(123,47,247,.3),0 20px 40px rgba(0,0,0,.45);text-align:center;margin:auto;}
   .summary-card h2{font-family:'Press Start 2P',cursive;font-size:18px;color:var(--sky-deep);margin:0 0 10px;text-shadow:0 0 6px rgba(123,47,247,.5);}
   .winner-line{font-size:16px;font-weight:800;color:var(--coral);margin-bottom:18px;}
@@ -521,7 +521,6 @@
 
   /* ---------------- game state ---------------- */
   let allSentences = [];
-  let gameOrder = [];
   let players = [];
   let gameTimerInterval = null;
   let gameStartTime = 0;
@@ -532,13 +531,12 @@
       id, name,
       poolEl: els.pool, trayEl: els.tray, scoreEl: els.score, cntEl: els.cnt, timerEl: els.timer,
       currentIndex: 0, score: 0, finished: false, finishElapsed: null,
-      tokensForCurrent: []
+      tokensForCurrent: [], order: []
     };
   }
 
   function startGame(){
     allSentences = parsedSentences.slice();
-    gameOrder = shuffle(allSentences.map((_,i)=>i));
     gameEnded = false;
     document.getElementById('gameScreen').classList.toggle('two-player', mode==='2p');
     window.__isTwoPlayer = (mode==='2p');
@@ -570,7 +568,11 @@
     gameTimerInterval = setInterval(updateTimers, 250);
     updateTimers();
 
-    players.forEach(p => loadSentenceForPlayer(p));
+    const sentenceIndices = allSentences.map((_,i)=>i);
+    players.forEach(p => {
+      p.order = shuffle(sentenceIndices);
+      loadSentenceForPlayer(p);
+    });
   }
 
   function fmtTime(ms){
@@ -627,16 +629,16 @@
   }
 
   function loadSentenceForPlayer(player){
-    if(player.currentIndex >= gameOrder.length){
+    if(player.currentIndex >= player.order.length){
       finishPlayer(player);
       return;
     }
-    const sIdx = gameOrder[player.currentIndex];
+    const sIdx = player.order[player.currentIndex];
     const sentence = allSentences[sIdx];
     const words = tokenize(sentence);
     const chunkTexts = chunkSentence(words, chunkMode);
     player.tokensForCurrent = chunkTexts.map((t,i)=>({text:t, correctIndex:i}));
-    player.cntEl.textContent = (player.currentIndex+1)+'/'+gameOrder.length;
+    player.cntEl.textContent = (player.currentIndex+1)+'/'+player.order.length;
 
     player.poolEl.innerHTML = '';
     player.trayEl.innerHTML = '';
@@ -898,7 +900,7 @@
       box.className = 'result-box' + (winnerPlayer && p.id===winnerPlayer.id ? ' winner' : '');
       const elapsed = p.finished ? p.finishElapsed : (Date.now()-gameStartTime);
       box.innerHTML = '<div class="rname">'+p.name+'</div>'+
-        '<div class="rscore">'+p.score+' / '+gameOrder.length+'</div>'+
+        '<div class="rscore">'+p.score+' / '+p.order.length+'</div>'+
         '<div class="rsub">correct sentences</div>'+
         '<div class="rsub" style="margin-top:6px;">⏱ '+fmtTime(elapsed)+'</div>';
       resultRow.appendChild(box);
