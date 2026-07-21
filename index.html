@@ -605,9 +605,33 @@
     const cellW = 100/cols, cellH = 100/rows;
     let left = col*cellW + cellW/2 + (Math.random()-0.5)*cellW*0.3;
     let top  = row*cellH + cellH/2 + (Math.random()-0.5)*cellH*0.3;
-    left = Math.min(92, Math.max(8, left));
+    left = Math.min(88, Math.max(12, left));
     top  = Math.min(88, Math.max(10, top));
     return {left, top};
+  }
+
+  // Measures the chip's actual rendered box (after wrapping/sizing) and nudges
+  // it inward if it comes closer than `margin` to any edge of its container —
+  // guarantees a chip can never be clipped by, or sit under, the screen edge
+  // or the divider between the two players' halves, regardless of how wide a
+  // multi-word phrase chip ends up being.
+  function keepChipInsideContainer(chip, containerEl, margin){
+    const cRect = containerEl.getBoundingClientRect();
+    const chRect = chip.getBoundingClientRect();
+    if(cRect.width===0 || cRect.height===0) return;
+    let dx = 0, dy = 0;
+    if(chRect.left < cRect.left + margin) dx = (cRect.left + margin) - chRect.left;
+    else if(chRect.right > cRect.right - margin) dx = (cRect.right - margin) - chRect.right;
+    if(chRect.top < cRect.top + margin) dy = (cRect.top + margin) - chRect.top;
+    else if(chRect.bottom > cRect.bottom - margin) dy = (cRect.bottom - margin) - chRect.bottom;
+    if(dx!==0 || dy!==0){
+      const curCenterX = chRect.left - cRect.left + chRect.width/2;
+      const curCenterY = chRect.top - cRect.top + chRect.height/2;
+      const newLeftPct = Math.min(96, Math.max(4, (curCenterX+dx)/cRect.width*100));
+      const newTopPct  = Math.min(96, Math.max(4, (curCenterY+dy)/cRect.height*100));
+      chip.style.left = newLeftPct+'%';
+      chip.style.top  = newTopPct+'%';
+    }
   }
 
   // Pool words respond the instant a finger/pointer touches down — no need to
@@ -653,6 +677,7 @@
       chip.dataset.correctIndex = tok.correctIndex;
       attachPoolTap(player, chip);
       player.poolEl.appendChild(chip);
+      keepChipInsideContainer(chip, player.poolEl, 16);
     });
   }
 
@@ -695,6 +720,7 @@
     chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
     attachPoolTap(player, chip);
     player.poolEl.appendChild(chip);
+    keepChipInsideContainer(chip, player.poolEl, 16);
     updateCheckButton(player);
   }
 
