@@ -610,28 +610,60 @@
     return {left, top};
   }
 
-  // Measures the chip's actual rendered box (after wrapping/sizing) and nudges
-  // it inward if it comes closer than `margin` to any edge of its container —
-  // guarantees a chip can never be clipped by, or sit under, the screen edge
-  // or the divider between the two players' halves, regardless of how wide a
-  // multi-word phrase chip ends up being.
-  function keepChipInsideContainer(chip, containerEl, margin){
+  function rectsOverlap(a, b, pad){
+    return !(a.right+pad < b.left || a.left-pad > b.right || a.bottom+pad < b.top || a.top-pad > b.bottom);
+  }
+
+  // Reads every currently-visible pool chip's real box (relative to the pool
+  // container), used as the "keep away from these" set for a new chip.
+  function getPoolChipRects(poolEl, excludeEl){
+    const cRect = poolEl.getBoundingClientRect();
+    return Array.from(poolEl.querySelectorAll('.pool-chip')).filter(el=>el!==excludeEl).map(el=>{
+      const r = el.getBoundingClientRect();
+      return {left:r.left-cRect.left, top:r.top-cRect.top, right:r.right-cRect.left, bottom:r.bottom-cRect.top};
+    });
+  }
+
+  // Measures the chip's real rendered size (words/phrases vary in width) and
+  // picks a position that (a) stays a safe margin inside the container edges —
+  // so it's never clipped by, or hidden under, the screen edge or the divider
+  // between the two players — and (b) doesn't overlap any other chip already
+  // placed, even though positions start out randomized. Tries the tidy grid
+  // spot first, then samples random spots, and keeps the least-bad option if
+  // every attempt still collides (e.g. far too many words for the space).
+  function placeChipAvoidingOverlap(chip, containerEl, avoidRects, gridIndex, gridTotal){
     const cRect = containerEl.getBoundingClientRect();
     const chRect = chip.getBoundingClientRect();
-    if(cRect.width===0 || cRect.height===0) return;
-    let dx = 0, dy = 0;
-    if(chRect.left < cRect.left + margin) dx = (cRect.left + margin) - chRect.left;
-    else if(chRect.right > cRect.right - margin) dx = (cRect.right - margin) - chRect.right;
-    if(chRect.top < cRect.top + margin) dy = (cRect.top + margin) - chRect.top;
-    else if(chRect.bottom > cRect.bottom - margin) dy = (cRect.bottom - margin) - chRect.bottom;
-    if(dx!==0 || dy!==0){
-      const curCenterX = chRect.left - cRect.left + chRect.width/2;
-      const curCenterY = chRect.top - cRect.top + chRect.height/2;
-      const newLeftPct = Math.min(96, Math.max(4, (curCenterX+dx)/cRect.width*100));
-      const newTopPct  = Math.min(96, Math.max(4, (curCenterY+dy)/cRect.height*100));
-      chip.style.left = newLeftPct+'%';
-      chip.style.top  = newTopPct+'%';
+    const w = chRect.width, h = chRect.height;
+    const margin = 16, pad = 18; // pad covers the chip's own gentle bob motion
+    function clamp(rect){
+      let {left,top,right,bottom} = rect;
+      if(left<margin){ const d=margin-left; left+=d; right+=d; }
+      if(right>cRect.width-margin){ const d=right-(cRect.width-margin); left-=d; right-=d; }
+      if(top<margin){ const d=margin-top; top+=d; bottom+=d; }
+      if(bottom>cRect.height-margin){ const d=bottom-(cRect.height-margin); top-=d; bottom-=d; }
+      return {left,top,right,bottom};
     }
+    const candidates = [];
+    if(gridIndex!=null){
+      const p = gridPosition(gridIndex, gridTotal, containerEl);
+      candidates.push({cx:p.left/100*cRect.width, cy:p.top/100*cRect.height});
+    }
+    for(let i=0;i<30;i++){
+      candidates.push({cx:(8+Math.random()*84)/100*cRect.width, cy:(10+Math.random()*80)/100*cRect.height});
+    }
+    let best = null, bestOverlaps = Infinity;
+    for(const c of candidates){
+      const rect = clamp({left:c.cx-w/2, top:c.cy-h/2, right:c.cx+w/2, bottom:c.cy+h/2});
+      const overlaps = avoidRects.reduce((n,r)=> n + (rectsOverlap(rect,r,pad)?1:0), 0);
+      if(overlaps===0){ best = rect; break; }
+      if(overlaps<bestOverlaps){ bestOverlaps=overlaps; best=rect; }
+    }
+    const leftPct = ((best.left+best.right)/2 / cRect.width)*100;
+    const topPct  = ((best.top+best.bottom)/2 / cRect.height)*100;
+    chip.style.left = leftPct+'%';
+    chip.style.top  = topPct+'%';
+    return best;
   }
 
   // Pool words respond the instant a finger/pointer touches down — no need to
@@ -664,20 +696,21 @@
     player.trayEl.innerHTML = '';
 
     const shuffledTokens = shuffle(player.tokensForCurrent.map((t,i)=>({...t, uid: player.id+'_'+player.currentIndex+'_'+i})));
+    const placedRects = [];
     shuffledTokens.forEach((tok, idx)=>{
       const chip = document.createElement('div');
       chip.className = 'chip pool-chip';
       chip.textContent = tok.text;
-      const pos = gridPosition(idx, shuffledTokens.length, player.poolEl);
-      chip.style.left = pos.left+'%';
-      chip.style.top = pos.top+'%';
+      chip.style.left = '50%';
+      chip.style.top = '50%';
       chip.style.animationDelay = (-Math.random()*2)+'s';
       chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
       chip.dataset.text = tok.text;
       chip.dataset.correctIndex = tok.correctIndex;
       attachPoolTap(player, chip);
       player.poolEl.appendChild(chip);
-      keepChipInsideContainer(chip, player.poolEl, 16);
+      const rect = placeChipAvoidingOverlap(chip, player.poolEl, placedRects, idx, shuffledTokens.length);
+      placedRects.push(rect);
     });
   }
 
@@ -712,15 +745,14 @@
     chip.textContent = text;
     chip.dataset.text = text;
     chip.dataset.correctIndex = correctIndex;
-    const count = player.poolEl.children.length + 1;
-    const pos = gridPosition(count-1, Math.max(count, player.tokensForCurrent.length), player.poolEl);
-    chip.style.left = pos.left+'%';
-    chip.style.top = pos.top+'%';
+    chip.style.left = '50%';
+    chip.style.top = '50%';
     chip.style.animationDelay = (-Math.random()*2)+'s';
     chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
     attachPoolTap(player, chip);
     player.poolEl.appendChild(chip);
-    keepChipInsideContainer(chip, player.poolEl, 16);
+    const avoidRects = getPoolChipRects(player.poolEl, chip);
+    placeChipAvoidingOverlap(chip, player.poolEl, avoidRects, null, null);
     updateCheckButton(player);
   }
 
