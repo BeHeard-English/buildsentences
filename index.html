@@ -108,28 +108,31 @@
   .pool{position:relative;flex:1;min-height:0;}
   .tray-wrap{background:rgba(0,0,0,.3);padding:10px 10px 12px;border-top:2px solid rgba(255,255,255,.15);flex-shrink:0;max-height:38vh;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;}
   .tray-label{font-size:11px;font-weight:800;color:#9fd0ff;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;text-align:center;}
-  .tray{min-height:56px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;border:3px dashed rgba(255,255,255,.3);border-radius:16px;padding:10px;transition:.15s;}
+  .tray{min-height:64px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;border:3px dashed rgba(255,255,255,.3);border-radius:16px;padding:10px;transition:.15s;}
   .half.p1 .tray{border-color:rgba(0,229,255,.45);}
   .half.p2 .tray{border-color:rgba(255,46,154,.45);}
   .tray.shake{animation:shakeTray .4s;border-color:var(--coral)!important;}
   .tray.correctFlash{border-color:var(--mint)!important;background:rgba(43,255,136,.12);}
   @keyframes shakeTray{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-6px);}80%{transform:translateX(6px);}}
 
-  .chip{font-family:'Fredoka',sans-serif;font-weight:500;font-size:32px;line-height:1.25;background:#fffaf2;color:var(--navy);padding:14px 26px;border-radius:20px;border:3px solid transparent;box-shadow:0 6px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;white-space:normal;word-break:keep-all;overflow-wrap:normal;hyphens:none;text-align:center;box-sizing:border-box;}
+  .check-btn{display:none;width:100%;margin-top:10px;padding:12px;border-radius:14px;background:linear-gradient(135deg,var(--sun),var(--mint));color:#0a2a1a;font-family:'Press Start 2P',cursive;font-size:13px;box-shadow:0 0 0 3px rgba(43,255,136,.25),0 8px 18px rgba(0,0,0,.35);animation:startPulse 1.6s ease-in-out infinite;}
+  .check-btn.visible{display:block;}
+
+  .chip{font-family:'Fredoka',sans-serif;font-weight:500;font-size:40px;line-height:1.25;background:#fffaf2;color:var(--navy);padding:16px 30px;border-radius:20px;border:3px solid transparent;box-shadow:0 6px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;white-space:normal;word-break:keep-all;overflow-wrap:normal;hyphens:none;text-align:center;box-sizing:border-box;}
   .half.p1 .chip{border-color:var(--p1-glow);box-shadow:0 0 12px rgba(0,229,255,.55),0 6px 14px rgba(0,0,0,.4);}
   .half.p2 .chip{border-color:var(--p2-glow);box-shadow:0 0 12px rgba(255,46,154,.55),0 6px 14px rgba(0,0,0,.4);}
   .chip.pool-chip{position:absolute;cursor:pointer;touch-action:none;animation:bob 3s ease-in-out infinite;transition:transform .12s, opacity .2s;max-width:90%;}
   .chip.pool-chip:active{transform:scale(.94);}
-  .chip.tray-chip{cursor:grab;touch-action:none;position:relative;transition:box-shadow .12s;max-width:94%;font-size:22px;padding:10px 18px;}
+  .chip.tray-chip{cursor:grab;touch-action:none;position:relative;transition:box-shadow .12s;max-width:94%;font-size:28px;padding:12px 22px;}
   .chip.tray-chip.dragging{cursor:grabbing;opacity:1;box-shadow:0 16px 30px rgba(0,0,0,.5);z-index:9999;transform:scale(1.08);pointer-events:none;}
   .tray-chip-placeholder{background:rgba(255,255,255,.08);box-shadow:none;border:2px dashed rgba(255,255,255,.35);}
   /* Slightly smaller text in 2-player mode, since each half has half the width —
      keeps chips comfortably inside their own half without overlap or clipping. */
-  #gameScreen.two-player .chip{font-size:24px;padding:11px 20px;}
-  #gameScreen.two-player .chip.tray-chip{font-size:17px;padding:8px 14px;}
+  #gameScreen.two-player .chip{font-size:27px;padding:12px 21px;}
+  #gameScreen.two-player .chip.tray-chip{font-size:19px;padding:9px 15px;}
   @media (max-width:480px){
-    #gameScreen.two-player .chip{font-size:19px;padding:8px 14px;}
-    #gameScreen.two-player .chip.tray-chip{font-size:14px;padding:6px 11px;}
+    #gameScreen.two-player .chip{font-size:21px;padding:9px 15px;}
+    #gameScreen.two-player .chip.tray-chip{font-size:16px;padding:7px 12px;}
   }
   @keyframes bob{0%,100%{transform:translate(-50%,-50%) translateY(0px);}50%{transform:translate(-50%,-50%) translateY(-9px);}}
   .pop-out{animation:popOut .22s forwards;}
@@ -168,7 +171,7 @@
     .mode-btn{padding:12px 6px;font-size:14px;}
     .mode-btn .big{font-size:22px;}
     .name-row{flex-direction:column;}
-    .chip{font-size:26px;padding:11px 20px;}
+    .chip{font-size:32px;padding:13px 22px;}
     .half-header .pname{font-size:15px;}
     .half-header .stats{font-size:11.5px;gap:8px;}
     .music-bar{gap:5px;padding:5px 8px calc(5px + env(safe-area-inset-bottom));}
@@ -252,6 +255,7 @@
       <div class="tray-wrap">
         <div class="tray-label">Build your sentence here</div>
         <div class="tray" id="trayP1"></div>
+        <button class="check-btn" id="checkP1">Check ✓</button>
       </div>
     </div>
     <div class="divider"></div>
@@ -266,6 +270,7 @@
       <div class="tray-wrap">
         <div class="tray-label">Build your sentence here</div>
         <div class="tray" id="trayP2"></div>
+        <button class="check-btn" id="checkP2">Check ✓</button>
       </div>
     </div>
     </div>
@@ -529,7 +534,7 @@
   function makePlayer(id, els, name){
     return {
       id, name,
-      poolEl: els.pool, trayEl: els.tray, scoreEl: els.score, cntEl: els.cnt, timerEl: els.timer,
+      poolEl: els.pool, trayEl: els.tray, scoreEl: els.score, cntEl: els.cnt, timerEl: els.timer, checkBtnEl: els.checkBtn,
       currentIndex: 0, score: 0, finished: false, finishElapsed: null,
       tokensForCurrent: [], order: []
     };
@@ -548,7 +553,8 @@
     document.getElementById('hdrNameP1').textContent = p1Name;
     players.push(makePlayer('p1', {
       pool: document.getElementById('poolP1'), tray: document.getElementById('trayP1'),
-      score: document.getElementById('scoreP1'), cnt: document.getElementById('cntP1'), timer: document.getElementById('timerP1')
+      score: document.getElementById('scoreP1'), cnt: document.getElementById('cntP1'), timer: document.getElementById('timerP1'),
+      checkBtn: document.getElementById('checkP1')
     }, p1Name));
 
     document.getElementById('halfP2').style.display = mode==='2p' ? '' : 'none';
@@ -558,7 +564,8 @@
       document.getElementById('hdrNameP2').textContent = p2Name;
       players.push(makePlayer('p2', {
         pool: document.getElementById('poolP2'), tray: document.getElementById('trayP2'),
-        score: document.getElementById('scoreP2'), cnt: document.getElementById('cntP2'), timer: document.getElementById('timerP2')
+        score: document.getElementById('scoreP2'), cnt: document.getElementById('cntP2'), timer: document.getElementById('timerP2'),
+        checkBtn: document.getElementById('checkP2')
       }, p2Name));
     }
 
@@ -603,29 +610,17 @@
     return {left, top};
   }
 
-  // Pool words use pointer events (not 'click') so two players tapping at the
-  // exact same instant are each tracked independently by pointerId, with no
-  // dependence on the browser's synthesized click/tap timing.
+  // Pool words respond the instant a finger/pointer touches down — no need to
+  // wait for release since pool chips are tap-only (never dragged). Using
+  // pointer events (not 'click') also means two players tapping at the exact
+  // same instant are each tracked independently, with no dependence on the
+  // browser's synthesized click/tap timing.
   function attachPoolTap(player, chip){
-    let downId = null, sx = 0, sy = 0, moved = false;
     chip.addEventListener('pointerdown', (e)=>{
       if(gameEnded || player.finished) return;
       e.preventDefault();
-      downId = e.pointerId; sx = e.clientX; sy = e.clientY; moved = false;
-      chip.setPointerCapture(e.pointerId);
-    });
-    chip.addEventListener('pointermove', (e)=>{
-      if(e.pointerId !== downId) return;
-      if(Math.abs(e.clientX-sx) > 8 || Math.abs(e.clientY-sy) > 8) moved = true;
-    });
-    chip.addEventListener('pointerup', (e)=>{
-      if(e.pointerId !== downId) return;
-      try{ chip.releasePointerCapture(e.pointerId); }catch(err){}
-      const wasMoved = moved;
-      downId = null;
-      if(!wasMoved) moveToTray(player, chip);
-    });
-    chip.addEventListener('pointercancel', ()=>{ downId = null; });
+      moveToTray(player, chip);
+    }, {once:true});
   }
 
   function loadSentenceForPlayer(player){
@@ -639,6 +634,7 @@
     const chunkTexts = chunkSentence(words, chunkMode);
     player.tokensForCurrent = chunkTexts.map((t,i)=>({text:t, correctIndex:i}));
     player.cntEl.textContent = (player.currentIndex+1)+'/'+player.order.length;
+    player.checkBtnEl.classList.remove('visible');
 
     player.poolEl.innerHTML = '';
     player.trayEl.innerHTML = '';
@@ -662,20 +658,23 @@
 
   function moveToTray(player, chip){
     if(gameEnded || player.finished) return;
-    chip.classList.add('pop-out');
     const text = chip.dataset.text;
     const correctIndex = chip.dataset.correctIndex;
-    setTimeout(()=>{
-      chip.remove();
-      const trayChip = document.createElement('div');
-      trayChip.className = 'chip tray-chip';
-      trayChip.textContent = text;
-      trayChip.dataset.text = text;
-      trayChip.dataset.correctIndex = correctIndex;
-      attachTrayDrag(player, trayChip);
-      player.trayEl.appendChild(trayChip);
-      maybeAutoCheck(player);
-    }, 190);
+
+    // Pool chip fades out on its own — purely cosmetic, doesn't block anything below.
+    chip.classList.add('pop-out');
+    chip.style.pointerEvents = 'none';
+    setTimeout(()=> chip.remove(), 220);
+
+    // Tray chip appears immediately, same frame as the tap — no waiting.
+    const trayChip = document.createElement('div');
+    trayChip.className = 'chip tray-chip';
+    trayChip.textContent = text;
+    trayChip.dataset.text = text;
+    trayChip.dataset.correctIndex = correctIndex;
+    attachTrayDrag(player, trayChip);
+    player.trayEl.appendChild(trayChip);
+    updateCheckButton(player);
   }
 
   function returnToPool(player, trayChip){
@@ -696,6 +695,7 @@
     chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
     attachPoolTap(player, chip);
     player.poolEl.appendChild(chip);
+    updateCheckButton(player);
   }
 
   /* ---------------- drag-to-reorder in tray (multitouch-safe, follows pointer/finger) ---------------- */
@@ -747,7 +747,7 @@
         returnToPool(st.player, chip);
       } else {
         stopFloating(st);
-        maybeAutoCheck(st.player);
+        updateCheckButton(st.player);
       }
     }
     chip.addEventListener('pointerup', endDrag);
@@ -835,12 +835,18 @@
   }
 
   /* ---------------- checking ---------------- */
-  function maybeAutoCheck(player){
-    if(gameEnded || player.finished) return;
-    const total = player.tokensForCurrent.length;
-    if(player.poolEl.children.length===0 && player.trayEl.children.length===total && total>0){
-      setTimeout(()=>checkAnswer(player), 260);
+  // Shows the Check button once every slot in the tray is filled, instead of
+  // auto-grading on every change — otherwise re-arranging chips after a wrong
+  // attempt would trigger a fresh "wrong" flash on every intermediate state.
+  function updateCheckButton(player){
+    if(gameEnded || player.finished){
+      player.checkBtnEl.classList.remove('visible');
+      return;
     }
+    const total = player.tokensForCurrent.length;
+    const poolRemaining = player.poolEl.querySelectorAll('.pool-chip:not(.pop-out)').length;
+    const isFull = poolRemaining===0 && player.trayEl.children.length===total && total>0;
+    player.checkBtnEl.classList.toggle('visible', isFull);
   }
 
   function checkAnswer(player){
@@ -856,6 +862,7 @@
       trayTexts.every((t,i)=> t===expectedTexts[i]);
 
     if(correct){
+      player.checkBtnEl.classList.remove('visible');
       player.trayEl.classList.add('correctFlash');
       playCorrectSound();
       burstConfetti(player.trayEl.parentElement);
@@ -879,6 +886,7 @@
     player.finishElapsed = Date.now() - gameStartTime;
     player.poolEl.innerHTML = '';
     player.trayEl.innerHTML = '<div class="chip" style="background:var(--mint);color:#fff;">All done! 🎉</div>';
+    player.checkBtnEl.classList.remove('visible');
     endGame(player);
   }
 
@@ -920,6 +928,15 @@
 
   document.getElementById('rotateP2').addEventListener('click', ()=>{
     document.getElementById('halfP2').classList.toggle('rotated');
+  });
+
+  document.getElementById('checkP1').addEventListener('click', ()=>{
+    const p = players.find(pl=>pl.id==='p1');
+    if(p) checkAnswer(p);
+  });
+  document.getElementById('checkP2').addEventListener('click', ()=>{
+    const p = players.find(pl=>pl.id==='p2');
+    if(p) checkAnswer(p);
   });
 
   /* ---------------- background music ---------------- */
