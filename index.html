@@ -610,6 +610,64 @@
     }, {once:true});
   }
 
+  // Lets the browser's flex-wrap engine lay every chip out with zero overlap
+  // (it handles this far better than manual placement, especially in the
+  // narrow 2-player halves), then "freezes" each chip at its computed spot by
+  // switching it to a fixed absolute position. From then on, removing one
+  // chip never reflows or shifts any of the others — they stay exactly where
+  // the player last saw them, which is much easier to track mid-game.
+  function freezePoolLayout(poolEl){
+    const cRect = poolEl.getBoundingClientRect();
+    const chips = Array.from(poolEl.querySelectorAll('.pool-chip'));
+    const rects = chips.map(ch=>{
+      const r = ch.getBoundingClientRect();
+      return {left:r.left-cRect.left, top:r.top-cRect.top, width:r.width, height:r.height};
+    });
+    chips.forEach((ch,i)=>{
+      const r = rects[i];
+      ch.style.position = 'absolute';
+      ch.style.left = r.left+'px';
+      ch.style.top = r.top+'px';
+      ch.style.width = r.width+'px';
+    });
+  }
+
+  function rectsOverlap(a,b,pad){
+    return !(a.right+pad < b.left || a.left-pad > b.right || a.bottom+pad < b.top || a.top-pad > b.bottom);
+  }
+
+  // Places a single chip somewhere that doesn't overlap the other (already
+  // frozen, absolutely-positioned) chips currently in the pool. Used when a
+  // chip returns from the tray, since the bulk flex-layout pass only runs
+  // once per sentence.
+  function placeSingleChip(chip, poolEl){
+    const cRect = poolEl.getBoundingClientRect();
+    chip.style.position = 'absolute';
+    chip.style.left = '0px';
+    chip.style.top = '0px';
+    poolEl.appendChild(chip);
+    const w = chip.getBoundingClientRect().width;
+    const h = chip.getBoundingClientRect().height;
+    chip.style.width = w+'px';
+    const margin = 16, pad = 12;
+    const maxLeft = Math.max(margin, cRect.width - margin - w);
+    const maxTop = Math.max(margin, cRect.height - margin - h);
+    const avoidRects = Array.from(poolEl.querySelectorAll('.pool-chip')).filter(el=>el!==chip).map(el=>{
+      const r = el.getBoundingClientRect();
+      return {left:r.left-cRect.left, top:r.top-cRect.top, right:r.right-cRect.left, bottom:r.bottom-cRect.top};
+    });
+    let best = {left:margin, top:margin}, bestOverlaps = Infinity;
+    for(let i=0;i<40;i++){
+      const cand = {left: margin + Math.random()*Math.max(1,maxLeft-margin), top: margin + Math.random()*Math.max(1,maxTop-margin)};
+      const rect = {left:cand.left, top:cand.top, right:cand.left+w, bottom:cand.top+h};
+      const overlaps = avoidRects.reduce((n,r)=> n + (rectsOverlap(rect,r,pad)?1:0), 0);
+      if(overlaps===0){ best = cand; bestOverlaps=0; break; }
+      if(overlaps<bestOverlaps){ bestOverlaps=overlaps; best=cand; }
+    }
+    chip.style.left = best.left+'px';
+    chip.style.top = best.top+'px';
+  }
+
   function loadSentenceForPlayer(player){
     if(player.currentIndex >= player.order.length){
       finishPlayer(player);
@@ -626,11 +684,8 @@
     player.poolEl.innerHTML = '';
     player.trayEl.innerHTML = '';
 
-    // The pool is a flex-wrap layout (like the tray), so every chip gets its
-    // own reserved slot automatically — no overlap is possible regardless of
-    // how many words/phrases there are or how narrow the half is. Each chip
-    // still bobs gently up and down (translateY only, doesn't affect layout)
-    // for a lively "floating" feel.
+    // First lay chips out with the flex-wrap engine (guarantees no overlap),
+    // then freeze their positions so later removals don't reshuffle anything.
     const shuffledTokens = shuffle(player.tokensForCurrent.map((t,i)=>({...t, uid: player.id+'_'+player.currentIndex+'_'+i})));
     shuffledTokens.forEach((tok)=>{
       const chip = document.createElement('div');
@@ -643,6 +698,7 @@
       attachPoolTap(player, chip);
       player.poolEl.appendChild(chip);
     });
+    freezePoolLayout(player.poolEl);
   }
 
   function moveToTray(player, chip){
@@ -650,7 +706,8 @@
     const text = chip.dataset.text;
     const correctIndex = chip.dataset.correctIndex;
 
-    // Pool chip fades out on its own — purely cosmetic, doesn't block anything below.
+    // Pool chip fades out in place — other chips are already frozen in
+    // position, so this never shifts or reflows anything around it.
     chip.classList.add('pop-out');
     chip.style.pointerEvents = 'none';
     setTimeout(()=> chip.remove(), 220);
@@ -679,7 +736,7 @@
     chip.style.animationDelay = (-Math.random()*2)+'s';
     chip.style.animationDuration = (2.4+Math.random()*1.6)+'s';
     attachPoolTap(player, chip);
-    player.poolEl.appendChild(chip);
+    placeSingleChip(chip, player.poolEl);
     updateCheckButton(player);
   }
 
